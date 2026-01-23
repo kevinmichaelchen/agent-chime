@@ -83,7 +83,7 @@ See **Section 5: CLI Integration** for detailed configuration and JSON payloads.
 ## 5. CLI Integration
 
 Each supported CLI has its own hook/event system. This section documents how
-audio-hooks integrates with each.
+agent-chime integrates with each.
 
 ### 5.1 Claude Code
 
@@ -101,13 +101,13 @@ Add to `~/.claude/settings.json`:
     "Stop": [
       {
         "type": "command",
-        "command": "audio-hooks notify --source claude"
+        "command": "agent-chime notify --source claude"
       }
     ],
     "Notification": [
       {
         "type": "command",
-        "command": "audio-hooks notify --source claude"
+        "command": "agent-chime notify --source claude"
       }
     ]
   }
@@ -163,7 +163,7 @@ docs][codex-config-docs].
 Add to `~/.codex/config.toml`:
 
 ```toml
-notify = ["audio-hooks", "notify", "--source", "codex"]
+notify = ["agent-chime", "notify", "--source", "codex"]
 ```
 
 #### Relevant Events
@@ -199,7 +199,7 @@ notify = ["audio-hooks", "notify", "--source", "codex"]
 | `input-messages`         | `string[]` | User messages that initiated the turn                 |
 | `last-assistant-message` | `string?`  | Final assistant message                               |
 
-#### Parsing in audio-hooks
+#### Parsing in agent-chime
 
 ```python
 import sys
@@ -220,20 +220,20 @@ JavaScript/TypeScript modules in `.opencode/plugin/`.
 
 #### Configuration
 
-Create `.opencode/plugin/audio-hooks.js`:
+Create `.opencode/plugin/agent-chime.js`:
 
 ```javascript
-export const AudioHooksPlugin = async ({ $ }) => {
+export const AgentChimePlugin = async ({ $ }) => {
   return {
     event: async ({ event }) => {
       if (event.type === "session.idle") {
-        await $`audio-hooks notify --source opencode --event AGENT_YIELD`;
+        await $`agent-chime notify --source opencode --event AGENT_YIELD`;
       }
       if (event.type === "session.error") {
-        await $`audio-hooks notify --source opencode --event ERROR_RETRY`;
+        await $`agent-chime notify --source opencode --event ERROR_RETRY`;
       }
       if (event.type === "permission.asked") {
-        await $`audio-hooks notify --source opencode --event DECISION_REQUIRED`;
+        await $`agent-chime notify --source opencode --event DECISION_REQUIRED`;
       }
     },
   };
@@ -263,7 +263,7 @@ OpenCode also supports experimental config-based hooks in
       "session_completed": [
         {
           "command": [
-            "audio-hooks",
+            "agent-chime",
             "notify",
             "--source",
             "opencode",
@@ -306,7 +306,7 @@ Note: `permission.asked` is an **event type** delivered to the `event` hook (see
 
 ### 5.5 Unified Handler
 
-The `audio-hooks notify` command normalizes all inputs:
+The `agent-chime notify` command normalizes all inputs:
 
 ```python
 #!/usr/bin/env python3
@@ -422,13 +422,13 @@ class TTSProvider:
 
 ## 9. Caching
 
-- LRU cache stored on disk (e.g., `~/.cache/audio-hooks`).
+- LRU cache stored on disk (e.g., `~/.cache/agent-chime`).
 - Keyed by `(text, voice, speed, provider)`.
 - Max size configurable.
 
 ## 10. Configuration
 
-Example `audio-hooks.json`:
+Example `agent-chime.json`:
 
 ```json
 {

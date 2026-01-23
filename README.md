@@ -1,4 +1,4 @@
-# audio-hooks
+# agent-chime
 
 TTS hooks for agentic workflows on macOS. The goal is simple: when your agent
 yields or asks for a decision, you hear a short, clear audio cue (TTS or earcon)
@@ -61,7 +61,7 @@ pip install mlx-audio
 
 ## Quick Start
 
-Configure your CLI tool to invoke `audio-hooks notify` on relevant events.
+Configure your CLI tool to invoke `agent-chime notify` on relevant events.
 
 ### Claude Code
 
@@ -71,10 +71,10 @@ Add to `~/.claude/settings.json`:
 {
   "hooks": {
     "Stop": [
-      { "type": "command", "command": "audio-hooks notify --source claude" }
+      { "type": "command", "command": "agent-chime notify --source claude" }
     ],
     "Notification": [
-      { "type": "command", "command": "audio-hooks notify --source claude" }
+      { "type": "command", "command": "agent-chime notify --source claude" }
     ]
   }
 }
@@ -87,24 +87,24 @@ See [Claude hooks docs][claude-hooks-docs].
 Add to `~/.codex/config.toml`:
 
 ```toml
-notify = ["audio-hooks", "notify", "--source", "codex"]
+notify = ["agent-chime", "notify", "--source", "codex"]
 ```
 
 See [Codex config docs][codex-config-docs].
 
 ### OpenCode
 
-Create `.opencode/plugin/audio-hooks.js`:
+Create `.opencode/plugin/agent-chime.js`:
 
 ```javascript
-export const AudioHooksPlugin = async ({ $ }) => ({
+export const AgentChimePlugin = async ({ $ }) => ({
   event: async ({ event }) => {
     if (event.type === "session.idle")
-      await $`audio-hooks notify --source opencode --event AGENT_YIELD`;
+      await $`agent-chime notify --source opencode --event AGENT_YIELD`;
     if (event.type === "session.error")
-      await $`audio-hooks notify --source opencode --event ERROR_RETRY`;
+      await $`agent-chime notify --source opencode --event ERROR_RETRY`;
     if (event.type === "permission.asked")
-      await $`audio-hooks notify --source opencode --event DECISION_REQUIRED`;
+      await $`agent-chime notify --source opencode --event DECISION_REQUIRED`;
   },
 });
 ```

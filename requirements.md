@@ -50,7 +50,7 @@ with `claude`, `codex`, and `opencode`.
 
 ### 2.6 Configuration
 
-- Simple local config file (e.g., `audio-hooks.json`).
+- Simple local config file (e.g., `agent-chime.json`).
 - Configurable voice, rate, and volume.
 - Enable/disable per event type.
 
