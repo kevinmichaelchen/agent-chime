@@ -34,29 +34,31 @@ into audio prompts.
 We use [mlx-audio][mlx-audio] as a unified TTS interface. It runs locally on
 Apple Silicon and supports multiple models:
 
-| Model                                         | Speed          | Use Case                                        |
-| --------------------------------------------- | -------------- | ----------------------------------------------- |
-| `mlx-community/pocket-tts`                    | ~17x real-time | Default — ultra-fast, perfect for short prompts |
-| `mlx-community/Qwen3-TTS-12Hz-0.6B-Base-bf16` | Fast           | Higher quality, multiple voices                 |
-| `mlx-community/Qwen3-TTS-12Hz-1.7B-Base-bf16` | Moderate       | Best quality, emotion control                   |
+| Model                                  | Speed        | Use Case                          |
+| -------------------------------------- | ------------ | --------------------------------- |
+| `mlx-community/Spark-TTS-0.5B-bf16`    | ~0.3x RT     | Default — fast, good quality      |
+| `mlx-community/Spark-TTS-0.5B-8bit`    | ~0.3x RT     | Quantized, lower memory           |
+| `mlx-community/pocket-tts`             | ~1.3x RT     | Fastest, smallest (~1GB memory)   |
 
-All models share the same API (`load_model()` / `generate()`), so switching is
-just a config change. PocketTTS and Qwen3-TTS are **not separate libraries** —
-both run through mlx-audio.
+All models share the same API through mlx-audio's `generate_audio()` function.
 
 ### Quick Example
 
 ```python
-from mlx_audio.tts.utils import load_model
+from mlx_audio.tts.generate import generate_audio
 
-model = load_model("mlx-community/pocket-tts")
-results = list(model.generate(text="Ready.", voice="alba", stream=True))
+generate_audio(
+    text="Ready.",
+    model="mlx-community/Spark-TTS-0.5B-bf16",
+    file_prefix="output",
+    play=True
+)
 ```
 
 ### Installation
 
 ```bash
-pip install mlx-audio
+uv add mlx-audio
 ```
 
 ## Quick Start
@@ -132,13 +134,108 @@ is only available for OpenCode via `session.error`.
 - Long-form narration
 - UI beyond simple CLI config
 
+## Installation
+
+```bash
+# Install dependencies and create virtual environment
+uv sync
+
+# Or with dev dependencies
+uv sync --all-extras
+
+# Run the CLI
+uv run agent-chime --help
+```
+
+## Usage
+
+### CLI Commands
+
+```bash
+# Show system info and recommended model
+agent-chime system-info
+
+# Show system info as JSON
+agent-chime system-info --json
+
+# Test TTS synthesis
+agent-chime test-tts
+agent-chime test-tts --text "Hello world"
+agent-chime test-tts --model "mlx-community/pocket-tts"
+
+# Manage configuration
+agent-chime config              # Show config path
+agent-chime config --show       # Show current config
+agent-chime config --init       # Create default config file
+agent-chime config --validate   # Validate configuration
+
+# Process notifications (usually called by hooks)
+agent-chime notify --source claude    # Reads JSON from stdin
+agent-chime notify --source codex     # Reads JSON from argv
+agent-chime notify --source opencode --event AGENT_YIELD
+```
+
+### Configuration
+
+Create `~/.config/agent-chime/config.json`:
+
+```json
+{
+  "tts": {
+    "model": null,
+    "selection_mode": "auto",
+    "voice": null
+  },
+  "volume": 0.8,
+  "events": {
+    "AGENT_YIELD": {
+      "enabled": true,
+      "mode": "tts",
+      "read_summary": true,
+      "template": "Ready."
+    },
+    "DECISION_REQUIRED": {
+      "enabled": true,
+      "mode": "tts",
+      "read_summary": false,
+      "template": "I need your input."
+    },
+    "ERROR_RETRY": {
+      "enabled": true,
+      "mode": "earcon"
+    }
+  }
+}
+```
+
+### Dynamic Model Selection
+
+agent-chime automatically selects the best TTS model based on your system:
+
+| RAM | Recommended Model | Notes |
+|-----|-------------------|-------|
+| ≥4GB available | Spark-TTS-0.5B-bf16 | Best quality |
+| ≥3GB available | Spark-TTS-0.5B-8bit | Quantized, smaller |
+| <3GB available | pocket-tts | Fastest (~1GB memory) |
+
+Override with `--model` or set in config:
+
+```json
+{
+  "tts": {
+    "model": "mlx-community/pocket-tts",
+    "selection_mode": "manual"
+  }
+}
+```
+
 ## Status
 
-Planning and design phase.
+Implemented and ready for testing.
 
 ## Implementation
 
-- **Language**: Python 3.10+
+- **Language**: Python 3.11+
 - **TTS**: mlx-audio (requires Apple Silicon)
 - **Audio**: afplay (macOS built-in)
 

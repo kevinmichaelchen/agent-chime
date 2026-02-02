@@ -1,0 +1,6 @@
+# Earcons directory
+# Place fallback audio files here:
+# - yield.wav       - Played when agent yields (AGENT_YIELD)
+# - decision.wav    - Played when decision needed (DECISION_REQUIRED)
+# - error.wav       - Played on recoverable error (ERROR_RETRY)
+# - notification.wav - Default fallback
