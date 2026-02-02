@@ -28,11 +28,13 @@ class TTSProvider:
         self,
         model_id: str | None = None,
         voice: str | None = None,
+        instruct: str | None = None,
         stream: bool = True,
         streaming_interval: float = 0.5,
     ) -> None:
         self.model_id = model_id
         self.voice = voice
+        self.instruct = instruct
         self.stream = stream
         self.streaming_interval = streaming_interval
 
@@ -72,6 +74,14 @@ class TTSProvider:
             return self._model_spec.default_voice
         return None
 
+    def _get_instruct(self) -> str | None:
+        """Get the instruct to use for emotion/style control."""
+        if self.instruct:
+            return self.instruct
+        if self._model_spec and self._model_spec.supports_instruct:
+            return self._model_spec.default_instruct
+        return None
+
     def synthesize(self, text: str) -> bytes:
         """
         Synthesize text to WAV audio bytes.
@@ -86,14 +96,15 @@ class TTSProvider:
         assert self._model_spec is not None
 
         voice = self._get_voice()
+        instruct = self._get_instruct()
         logger.debug(f"Synthesizing: '{text}' with model '{self._model_spec.model_id}'")
 
         try:
-            return self._generate_with_model(text, self._model_spec, voice)
+            return self._generate_with_model(text, self._model_spec, voice, instruct)
         except Exception as e:
             logger.error(f"Synthesis failed with {self._model_spec.model_id}: {e}")
 
-            # Try fallback to Kokoro if not already
+            # Try fallback to pocket-tts if not already
             fallback = get_fallback_model()
             if self._model_spec.model_id != fallback.model_id:
                 logger.info(f"Falling back to {fallback.model_id}")
@@ -110,6 +121,7 @@ class TTSProvider:
         text: str,
         model_spec: ModelSpec,
         voice: str | None,
+        instruct: str | None = None,
     ) -> bytes:
         """Generate audio using mlx-audio's generate_audio function."""
         try:
@@ -133,9 +145,13 @@ class TTSProvider:
                 "lang_code": model_spec.lang_code,
             }
 
-            # Add voice if specified and model supports it
-            if voice:
+            # Add voice if specified and model supports it (not for VoiceDesign)
+            if voice and not model_spec.supports_instruct:
                 kwargs["voice"] = voice
+
+            # Add instruct for VoiceDesign models (emotion/style control)
+            if model_spec.supports_instruct and instruct:
+                kwargs["instruct"] = instruct
 
             # Call generate_audio
             generate_audio(**kwargs)
