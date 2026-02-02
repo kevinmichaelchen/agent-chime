@@ -15,6 +15,7 @@ from agent_chime.events import Event, EventType, Source
 from agent_chime.system.detector import SystemDetector
 from agent_chime.system.model_selector import ModelSelector, SelectionMode
 from agent_chime.tts.broker import TTSBroker
+from agent_chime.tts.models import MODELS, QUALITY_ORDER, ModelSpec, ModelTier
 from agent_chime.tts.provider import TTSError, TTSProvider
 
 logger = logging.getLogger(__name__)
@@ -221,6 +222,100 @@ def cmd_test_tts(args: argparse.Namespace) -> int:
         return 1
 
 
+def _get_model_cache_size(model_id: str) -> int | None:
+    """Get the disk size of a cached model in bytes, or None if not cached."""
+    # HuggingFace cache structure: ~/.cache/huggingface/hub/models--{org}--{name}
+    cache_dir = Path.home() / ".cache" / "huggingface" / "hub"
+    if not cache_dir.exists():
+        return None
+
+    # Convert model_id to cache directory name (e.g., mlx-community/Spark-TTS-0.5B-bf16)
+    cache_name = f"models--{model_id.replace('/', '--')}"
+    model_cache = cache_dir / cache_name
+
+    if not model_cache.exists():
+        return None
+
+    # Calculate total size
+    total_size = 0
+    for file in model_cache.rglob("*"):
+        if file.is_file():
+            total_size += file.stat().st_size
+    return total_size
+
+
+def _format_size(size_bytes: int) -> str:
+    """Format bytes as human-readable size."""
+    for unit in ["B", "KB", "MB", "GB"]:
+        if size_bytes < 1024:
+            return f"{size_bytes:.1f} {unit}"
+        size_bytes /= 1024
+    return f"{size_bytes:.1f} TB"
+
+
+def cmd_models(args: argparse.Namespace) -> int:
+    """Handle the models command - list available models and cache status."""
+    # Get system info to show which model is recommended
+    detector = SystemDetector()
+    selector = ModelSelector(detector)
+    result = selector.select()
+    recommended_tier = result.tier
+
+    if args.json:
+        models_data = []
+        for tier in QUALITY_ORDER:
+            spec = MODELS[tier]
+            cache_size = _get_model_cache_size(spec.model_id)
+            models_data.append({
+                "tier": tier.value,
+                "model_id": spec.model_id,
+                "memory_gb": spec.estimated_memory_gb,
+                "realtime_factor": spec.realtime_factor,
+                "requires_metal": spec.requires_metal,
+                "description": spec.description,
+                "cached": cache_size is not None,
+                "cache_size_bytes": cache_size,
+                "recommended": tier == recommended_tier,
+            })
+        print(json.dumps(models_data, indent=2))
+        return 0
+
+    # Human-readable output
+    print("Available TTS Models")
+    print("=" * 60)
+    print()
+
+    total_cache_size = 0
+    for tier in QUALITY_ORDER:
+        spec = MODELS[tier]
+        cache_size = _get_model_cache_size(spec.model_id)
+
+        # Header with tier and recommendation marker
+        marker = " ★ RECOMMENDED" if tier == recommended_tier else ""
+        print(f"[{tier.value.upper()}]{marker}")
+        print(f"  Model:   {spec.model_id}")
+        print(f"  Memory:  {spec.estimated_memory_gb} GB")
+        print(f"  Speed:   {spec.realtime_factor}x realtime")
+        print(f"  Metal:   {'Required' if spec.requires_metal else 'Not required'}")
+        if spec.description:
+            print(f"  Info:    {spec.description}")
+
+        if cache_size is not None:
+            print(f"  Cached:  ✓ ({_format_size(cache_size)})")
+            total_cache_size += cache_size
+        else:
+            print("  Cached:  ✗ (not downloaded)")
+
+        print()
+
+    # Summary
+    print("-" * 60)
+    print(f"Total cache size: {_format_size(total_cache_size)}")
+    print(f"Cache location:   ~/.cache/huggingface/hub/")
+
+    return 0
+
+
 def cmd_config(args: argparse.Namespace) -> int:
     """Handle the config command."""
     config = Config.load()
@@ -326,6 +421,17 @@ def main(argv: list[str] | None = None) -> int:
         help="Voice to use",
     )
 
+    # models command
+    models_parser = subparsers.add_parser(
+        "models",
+        help="List available TTS models and cache status",
+    )
+    models_parser.add_argument(
+        "--json",
+        action="store_true",
+        help="Output as JSON",
+    )
+
     # config command
     config_parser = subparsers.add_parser(
         "config",
@@ -366,6 +472,7 @@ def main(argv: list[str] | None = None) -> int:
         "notify": cmd_notify,
         "system-info": cmd_system_info,
         "test-tts": cmd_test_tts,
+        "models": cmd_models,
         "config": cmd_config,
     }
 
